@@ -10,6 +10,12 @@
 
 // 사용자의 입력에 따라 앞뒤좌우로 이동하고 싶다
 // 필요속성 : 이동속도, 입력액션, 입력매핑컨텍스트
+// 사용자가 텔레포트 버튼을 눌렀다가 떼면 텔레포트 되도록 한다
+// 4. 텔레포트 버튼을 눌렀다가 떼서
+// 3. 사용자가 그 지점을 가리키니까
+// 2. 텔레포트 목적지가 필요하다
+// 1. 텔레포트 이동 하고 싶다
+// 연역적 접근
 
 UCLASS()
 class VRPROJECT_API AVRPlayer : public ACharacter
@@ -71,4 +77,34 @@ protected:
 
 	UPROPERTY(VisibleAnywhere, Category = "MotionController")
 	class USkeletalMeshComponent* rightHandMesh;
+
+public: // teleport straight
+	UPROPERTY(VisibleAnywhere, Category = "Teleport")
+	class UStaticMeshComponent* teleportCircle;
+
+	// teleport 기능 활성화 여부
+	bool bTeleporting = false;
+
+	// teleport 버튼을 눌렀을때 함수
+	void TeleportStart(const FInputActionValue& Values);
+
+	// teleport 버튼을 뗐을때 함수
+	void TeleportEnd(const FInputActionValue& Values);
+
+	bool ResetTeleport();
+
+	// 직선 텔레포트 처리하기
+	void DrawTeleportStraight();
+
+	// 텔레포트 선과 충돌체크 함수
+	bool CheckHitTeleport(FVector lastPos, FVector& curPos);
+
+	// 충돌 체크
+	bool HitTest(FVector lastPos, FVector curPos, FHitResult& result);
+
+	// 텔레포트 입력 액션
+	UPROPERTY(EditDefaultsOnly, Category = "Input")
+	class UInputAction* IA_Teleport;
+
+	FVector teleportLocation;
 };

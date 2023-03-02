@@ -8,6 +8,9 @@
 #include "MotionControllerComponent.h"
 #include "Camera/CameraComponent.h"
 #include "Engine/LocalPlayer.h"
+#include "DrawDebugHelpers.h"
+#include "HeadMountedDisplayFunctionLibrary.h"
+#include "Components/CapsuleComponent.h"
 
 // Sets default values
 AVRPlayer::AVRPlayer()
@@ -47,6 +50,11 @@ AVRPlayer::AVRPlayer()
 		rightHandMesh->SetRelativeLocation(FVector(-2.9f, 3.5f, 4.5f));
 		rightHandMesh->SetRelativeRotation(FRotator(25.0f, 0.0f, 89.9f));
 	}
+
+	// teleport
+	teleportCircle = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("teleportCircle"));
+	teleportCircle->SetupAttachment(RootComponent);
+	teleportCircle->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 }
 
 // Called when the game starts or when spawned
@@ -68,6 +76,8 @@ void AVRPlayer::BeginPlay()
 			subSystem->AddMappingContext(IMC_VRInput, 0);
 		}
 	}
+
+	ResetTeleport();
 }
 
 // Called every frame
@@ -75,6 +85,18 @@ void AVRPlayer::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
 
+	// HMD 가 연결되어 있지 않으면
+	if(UHeadMountedDisplayFunctionLibrary::IsHeadMountedDisplayEnabled() == false)
+	{
+		// -> 손이 카메라 방향과 일치하도록 한다
+		rightHand->SetRelativeRotation(vrCamera->GetRelativeRotation());
+	}
+
+	// 텔레포트 확인 처리
+	if(bTeleporting)
+	{
+		DrawTeleportStraight();
+	}
 }
 
 // Called to bind functionality to input
@@ -90,6 +112,9 @@ void AVRPlayer::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
 		inputSystem->BindAction(IA_Move, ETriggerEvent::Triggered, this, &AVRPlayer::Move);
 		// binding mouse
 		inputSystem->BindAction(IA_Mouse, ETriggerEvent::Triggered, this, &AVRPlayer::Turn);
+		// binding teleport
+		inputSystem->BindAction(IA_Teleport, ETriggerEvent::Started, this, &AVRPlayer::TeleportStart);
+		inputSystem->BindAction(IA_Teleport, ETriggerEvent::Completed, this, &AVRPlayer::TeleportEnd);
 	}
 }
 
@@ -121,4 +146,80 @@ void AVRPlayer::Turn(const FInputActionValue& Values)
 	AddControllerYawInput(Axis.X);
 	
 	AddControllerPitchInput(Axis.Y);
+}
+
+// 텔레포트 기능 활성화
+void AVRPlayer::TeleportStart(const FInputActionValue& Values)
+{
+	// 눌렀을때 사용자가 어디를 가르키는지 주시하고 싶다
+	bTeleporting = true;
+}
+
+void AVRPlayer::TeleportEnd(const FInputActionValue& Values)
+{
+	// 텔레포트 기능 리셋
+	// 만약 텔레포트가 불가능하다면
+	// 다음 처리를 하지 않는다
+	if(ResetTeleport() == false)
+	{
+		return;
+	}
+	// 텔레포트 위치로 이동하고 싶다
+	SetActorLocation(teleportLocation + FVector::UpVector * GetCapsuleComponent()->GetScaledCapsuleHalfHeight());
+}
+
+bool AVRPlayer::ResetTeleport()
+{
+	// 텔레포트 서클이 보일때만 텔레포트 가능
+	bool bCanTeleport = teleportCircle->GetVisibleFlag();
+
+	// 서클 안보이게 처리
+	teleportCircle->SetVisibility(false);
+	teleportLocation = teleportCircle->GetComponentLocation();
+	bTeleporting = false;
+
+	return bCanTeleport;
+}
+
+void AVRPlayer::DrawTeleportStraight()
+{
+	// 직선을 그리고 싶다.
+	// 필요정보 : 시작점, 종료점
+	FVector startPos = rightHand->GetComponentLocation();
+	FVector endPos = startPos + rightHand->GetForwardVector() * 1000.0f;
+
+	// 두 점 사이에 충돌이 되는지 체크
+	CheckHitTeleport(startPos, endPos);
+	
+	DrawDebugLine(GetWorld(), startPos, endPos, FColor::Red, false, -1, 0, 1);
+}
+
+bool AVRPlayer::CheckHitTeleport(FVector lastPos, FVector& curPos)
+{
+	FHitResult result;
+
+	bool bHit = HitTest(lastPos, curPos, result);
+
+	if (bHit && result.GetActor()->GetName().Contains(TEXT("Floor")))
+	{
+		// 마지막 점을 최종 점으로 수정
+		curPos = result.Location;
+		// 써클 활성화
+		teleportCircle->SetVisibility(true);
+		// 텔레포트 써클을 위치
+		teleportCircle->SetWorldLocation(curPos);
+	}
+	else
+	{
+		teleportCircle->SetVisibility(false);
+	}
+	return bHit;
+}
+
+bool AVRPlayer::HitTest(FVector lastPos, FVector curPos, FHitResult& result)
+{
+	FCollisionQueryParams params;
+	params.AddIgnoredActor(this);
+	bool bHit = GetWorld()->LineTraceSingleByChannel(result, lastPos, curPos, ECollisionChannel::ECC_Visibility, params);
+	return bHit;
 }
