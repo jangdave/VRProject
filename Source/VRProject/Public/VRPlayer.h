@@ -80,7 +80,7 @@ protected:
 
 public: // teleport straight
 	UPROPERTY(VisibleAnywhere, Category = "Teleport")
-	class UStaticMeshComponent* teleportCircle;
+	class UNiagaraComponent* teleportCircle;
 
 	// teleport 기능 활성화 여부
 	bool bTeleporting = false;
@@ -107,4 +107,35 @@ public: // teleport straight
 	class UInputAction* IA_Teleport;
 
 	FVector teleportLocation;
+
+private: // 곡선 텔레포트
+	// 곡선 텔레포트 사용 여부
+	UPROPERTY(EditDefaultsOnly, Category = "Teleport", meta = (AllowPrivateAccess = true))
+	bool bTeleportCurve = true;
+
+	// 던지는 힘
+	UPROPERTY(EditDefaultsOnly, Category = "Teleport", meta = (AllowPrivateAccess = true))
+	float curvedPower = 1500.0f;
+
+	// 중력
+	UPROPERTY(EditDefaultsOnly, Category = "Teleport", meta = (AllowPrivateAccess = true))
+	float gravity = -5000.0f;
+
+	// 시뮬레이션 시간
+	UPROPERTY(EditDefaultsOnly, Category = "Teleport", meta = (AllowPrivateAccess = true))
+	float simulratedTime = 0.02f;
+
+	// 곡선을 이루는 점의 개수
+	UPROPERTY(EditDefaultsOnly, Category = "Teleport", meta = (AllowPrivateAccess = true))
+	int32 lineSmooth = 40;
+
+	// 점을 기억할 배열
+	UPROPERTY()
+	TArray<FVector> lines;
+
+	void DrawTeleportCurve();
+
+	// 사용할 나이아가라 컴포넌트(linetrace)
+	UPROPERTY(VisibleAnywhere, Category = "Teleport")
+	class UNiagaraComponent* teleportCurveComp;
 };

@@ -27,6 +27,10 @@
 				"Android",
 				"HoloLens"
 			]
+		},
+		{
+			"Name": "ChaosNiagara",
+			"Enabled": false
 		}
 	],
 	"TargetPlatforms": [
