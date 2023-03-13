@@ -13,6 +13,7 @@
 #include "Components/CapsuleComponent.h"
 #include "NiagaraComponent.h"
 #include "NiagaraDataInterfaceArrayFunctionLibrary.h"
+#include "Components/WidgetInteractionComponent.h"
 #include "Haptics/HapticFeedbackEffect_Curve.h"
 
 // Sets default values
@@ -66,6 +67,10 @@ AVRPlayer::AVRPlayer()
 	rightAim = CreateDefaultSubobject<UMotionControllerComponent>(TEXT("rightArm"));
 	rightAim->SetupAttachment(RootComponent);
 	rightAim->SetTrackingMotionSource(FName("RightAim"));
+
+	// widget
+	widgetInteractionComp = CreateDefaultSubobject<UWidgetInteractionComponent>(TEXT("widgetInteractionComp"));
+	widgetInteractionComp->SetupAttachment(rightAim);
 }
 
 // Called when the game starts or when spawned
@@ -171,6 +176,7 @@ void AVRPlayer::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
 		inputSystem->BindAction(IA_Teleport, ETriggerEvent::Started, this, &AVRPlayer::TeleportStart);
 		inputSystem->BindAction(IA_Teleport, ETriggerEvent::Completed, this, &AVRPlayer::TeleportEnd);
 		inputSystem->BindAction(IA_Fire, ETriggerEvent::Started, this, &AVRPlayer::FireInput);
+		inputSystem->BindAction(IA_Fire, ETriggerEvent::Completed, this, &AVRPlayer::ReleasedUIInput);
 		// 잡기
 		inputSystem->BindAction(IA_Grab, ETriggerEvent::Started, this, &AVRPlayer::TryGrab);
 		inputSystem->BindAction(IA_Grab, ETriggerEvent::Completed, this, &AVRPlayer::UnTryGrab);
@@ -393,8 +399,23 @@ void AVRPlayer::DoWarp()
 	), 0.02f, true);
 }
 
+void AVRPlayer::ReleasedUIInput()
+{
+	if (widgetInteractionComp)
+	{
+		widgetInteractionComp->ReleasePointerKey(FKey(FName("LeftMouseButton")));
+	}
+}
+
 void AVRPlayer::FireInput(const FInputActionValue& Values)
 {
+	// UI로 이벤트 전달
+	if (widgetInteractionComp)
+	{
+		widgetInteractionComp->PressPointerKey(FKey(FName("LeftMouseButton")));
+		//widgetInteractionComp->PressPointerKey(FKey(FName("OculusTouch(R)Trigger")));
+	}
+
 	// 진동처리
 	auto PC = Cast<APlayerController>(GetController());
 	if (PC)
